@@ -13,6 +13,7 @@ import warnings
 from ase.geometry import cellpar_to_cell, complete_cell, get_distances
 from matplotlib.colors import rgb2hex
 from scipy.interpolate import interp1d
+from ase import Atoms as ASEAtoms
 
 from pyiron.atomistics.structure.atom import Atom
 from pyiron.atomistics.structure.sparse_list import SparseArray, SparseList
@@ -47,7 +48,7 @@ __date__ = "Sep 1, 2017"
 s = Settings()
 
 
-class Atoms(object):
+class Atoms(ASEAtoms):
     """
     The Atoms class represents all the information required to describe a structure at the atomic scale. This class is
     written in such a way that is compatible with the `ASE atoms class`_. Some of the functions in this module is based
@@ -125,7 +126,6 @@ class Atoms(object):
                 cell = np.array(cell)
         self._cell = cell
         self._species = list()
-        self.positions = None
         self._pse = PeriodicTable()
         self._tag_list = SparseArray()
         self.indices = np.array([])
