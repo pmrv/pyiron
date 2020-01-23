@@ -22,8 +22,8 @@ __email__ = "janssen@mpie.de"
 __status__ = "production"
 __date__ = "Sep 1, 2017"
 
-sys.modules["ase.atom"] = atom
-sys.modules["ase.atoms"] = atoms
+#sys.modules["ase.atom"] = atom
+#sys.modules["ase.atoms"] = atoms
 
 
 def publication():
