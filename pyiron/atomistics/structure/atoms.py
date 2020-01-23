@@ -3069,16 +3069,6 @@ class Atoms(ASEAtoms):
         else:
             return dist
 
-    def get_distance_matrix(self, mic=True, vector=False):
-        """
-        Return distances between all atoms in a matrix. cf. get_distance
-        """
-        warnings.warn(
-            "get_distance_matrix is deprecated. Use get_distances instead",
-            DeprecationWarning,
-        )
-        return self.get_distances(mic=mic, vector=vector)
-
     def get_constraint(self):
         if "selective_dynamics" in self._tag_list._lists.keys():
             from ase.constraints import FixAtoms
