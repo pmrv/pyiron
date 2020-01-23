@@ -543,15 +543,17 @@ class LammpsBase(AtomisticGenericJob):
             ]
         )
         df["pressures"] = pressures.tolist()
-        if 'mean_Pxx' in df.columns:
+        if 'mean_pressure[1]' in df.columns:
             pressures = np.stack(
-                (df.mean_Pxx, df.mean_Pxy, df.mean_Pxz, df.mean_Pxy, df.mean_Pyy, df.mean_Pyz, df.mean_Pxz, df.mean_Pyz, df.mean_Pzz),
+                (df['mean_pressure[1]'], df['mean_pressure[4]'], df['mean_pressure[5]'],
+                 df['mean_pressure[4]'], df['mean_pressure[2]'], df['mean_pressure[6]'],
+                 df['mean_pressure[5]'], df['mean_pressure[6]'], df['mean_pressure[3]']),
                 axis=-1,
             ).reshape(-1, 3, 3).astype('float64')
             pressures *= 0.0001  # bar -> GPa
             df = df.drop(
                 columns=df.columns[
-                    ((df.columns.str.len() == 8) & df.columns.str.startswith("mean_P"))
+                    (df.columns.str.startswith("mean_pressure") & df.columns.str.endswith(']'))
                 ]
             )
             df["mean_pressures"] = pressures.tolist()
@@ -614,36 +616,7 @@ class LammpsBase(AtomisticGenericJob):
         delta_temp=None,
         delta_press=None,
     ):
-        """
-        Set an MD calculation within LAMMPS. Nosé Hoover is used by default.
-
-        Args:
-            temperature (None/float): Target temperature. If set to None, an NVE calculation is performed.
-                                      It is required when the pressure is set or langevin is set
-            pressure (None/float): Target pressure. If set to None, an NVE or an NVT calculation is performed.
-                                   (This tag will allow for a list in the future as it is done for calc_minimize())
-            n_ionic_steps (int): Number of ionic steps
-            time_step (float): Step size between two steps. In fs if units==metal
-            n_print (int):  Print frequency
-            temperature_damping_timescale (float): The time associated with the thermostat adjusting the temperature.
-                                                   (In fs. After rescaling to appropriate time units, is equivalent to
-                                                   Lammps' `Tdamp`.)
-            pressure_damping_timescale (float): The time associated with the barostat adjusting the temperature.
-                                                (In fs. After rescaling to appropriate time units, is equivalent to
-                                                Lammps' `Pdamp`.)
-            seed (int):  Seed for the random number generation (required for the velocity creation)
-            tloop:
-            initial_temperature (None/float):  Initial temperature according to which the initial velocity field
-                                               is created. If None, the initial temperature will be twice the target
-                                               temperature (which would go immediately down to the target temperature
-                                               as described in equipartition theorem). If 0, the velocity field is not
-                                               initialized (in which case  the initial velocity given in structure will
-                                               be used). If any other number is given, this value is going to be used
-                                               for the initial temperature.
-            langevin (bool): (True or False) Activate Langevin dynamics
-            delta_temp (float): Thermostat timescale, but in your Lammps time units, whatever those are. (DEPRECATED.)
-            delta_press (float): Barostat timescale, but in your Lammps time units, whatever those are. (DEPRECATED.)
-        """
+        # Docstring set programmatically -- Ensure that changes to signature or defaults stay consistent!
         if self.server.run_mode.interactive_non_modal:
             warnings.warn(
                 "calc_md() is not implemented for the non modal interactive mode use calc_static()!"
@@ -678,6 +651,7 @@ class LammpsBase(AtomisticGenericJob):
             delta_press=delta_press,
             job_name=self.job_name,
         )
+    calc_md.__doc__ = LammpsControl.calc_md.__doc__
 
     def calc_vcsgc(
         self,
@@ -915,17 +889,43 @@ class LammpsBase(AtomisticGenericJob):
         )
         output["forces"] = np.matmul(forces, rotation_lammps2orig)
 
+        if 'f_mean_forces[1]' in content[0].keys():
+            forces = np.array(
+                [np.stack((cc["f_mean_forces[1]"],
+                           cc["f_mean_forces[2]"],
+                           cc["f_mean_forces[3]"]),
+                          axis=-1) for cc in content]
+            )
+            output["mean_forces"] = np.matmul(forces, rotation_lammps2orig)
+
         if np.all([flag in content[0].columns.values for flag in ["vx", "vy", "vz"]]):
             velocities = np.array(
                 [np.stack((cc["vx"], cc["vy"], cc["vz"]), axis=-1) for cc in content]
             )
             output["velocities"] = np.matmul(velocities, rotation_lammps2orig)
 
+        if 'f_mean_velocities[1]' in content[0].keys():
+            velocities = np.array(
+                [np.stack((cc["f_mean_velocities[1]"],
+                           cc["f_mean_velocities[2]"],
+                           cc["f_mean_velocities[3]"]),
+                          axis=-1) for cc in content]
+            )
+            output["mean_velocities"] = np.matmul(velocities, rotation_lammps2orig)
         direct_unwrapped_positions = np.array(
             [np.stack((cc["xsu"], cc["ysu"], cc["zsu"]), axis=-1) for cc in content]
         )
         unwrapped_positions = np.matmul(direct_unwrapped_positions, lammps_cells)
         output["unwrapped_positions"] = np.matmul(unwrapped_positions, rotation_lammps2orig)
+        if 'f_mean_positions[1]' in content[0].keys():
+            direct_unwrapped_positions = np.array(
+                [np.stack((cc["f_mean_positions[1]"],
+                           cc["f_mean_positions[2]"],
+                           cc["f_mean_positions[3]"]),
+                          axis=-1) for cc in content]
+            )
+            unwrapped_positions = np.matmul(direct_unwrapped_positions, lammps_cells)
+            output["mean_unwrapped_positions"] = np.matmul(unwrapped_positions, rotation_lammps2orig)
 
         direct_positions = direct_unwrapped_positions - np.floor(direct_unwrapped_positions)
         positions = np.matmul(direct_positions, lammps_cells)
