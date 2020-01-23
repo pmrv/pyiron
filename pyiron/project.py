@@ -458,21 +458,23 @@ class Project(ProjectCore):
             raise ValueError("Supported Bibformats are ['dict', 'bibtex', 'apa']")
 
     @staticmethod
-    def create_structure(element, bravais_basis, lattice_constant):
+    def create_structure(symbol, bravais_basis, latticeconstant=None, element=None, lattice_constants=None):
         """
 
         Args:
-            element:
-            bravais_basis:
-            lattice_constant:
+            element: (str) Chemical element
+            bravais_basis: (str) Crystal structure. Currently supports bcc, fcc and hcp
+            lattice_constant: (float) lattice constant
 
         Returns:
 
         """
         return CrystalStructure(
-            element=element,
+            symbol=symbol,
             bravais_basis=bravais_basis,
-            lattice_constants=[lattice_constant],
+            latticeconstant=latticeconstant,
+            lattice_constants=lattice_constants,
+            element=element,
         )
 
     @staticmethod

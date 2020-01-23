@@ -98,139 +98,25 @@ class Atoms(ASEAtoms):
         high_symmetry_points=None,
         **qwargs
     ):
-        if symbols is not None:
-            if elements is None:
-                elements = symbols
-            else:
-                raise ValueError("Only elements OR symbols should be given.")
-        if (
-            tags is not None
-            or momenta is not None
-            or masses is not None
-            or charges is not None
-            or celldisp is not None
-            or constraint is not None
-            or calculator is not None
-            or info is not None
-        ):
-            s.logger.debug("Not supported parameter used!")
-        self._store_elements = dict()
-        self._species_to_index_dict = None
-        self.colorLut = ElementColorDictionary().to_lut()
-        self._is_scaled = False
-        if cell is not None:
-            # make it ASE compatible
-            if np.linalg.matrix_rank(cell) == 1:
-                cell = np.eye(len(cell)) * cell
-            else:
-                cell = np.array(cell)
-        self._cell = cell
-        self._species = list()
-        self._pse = PeriodicTable()
-        self._tag_list = SparseArray()
-        self.indices = np.array([])
-        self._info = dict()
-        self.arrays = dict()
-        self.adsorbate_info = {}
-        self.bonds = None
-        self._pbc = False
-        self.dimension = 3  # Default
-        self.units = {"length": "A", "mass": "u"}
-
-        el_index_lst = list()
-        element_list = None
-
-        if (elements is None) and (numbers is None) and (indices is None):
-            return
-        if numbers is not None:  # for ASE compatibility
-            if not (elements is None):
-                raise AssertionError()
-            elements = self.numbers_to_elements(numbers)
-        if elements is not None:
-            el_object_list = None
-            if isinstance(elements, str):
-                element_list = self.convert_formula(elements)
-            elif isinstance(elements, (list, tuple, np.ndarray)):
-                if not all([isinstance(el, elements[0].__class__) for el in elements]):
-                    object_list = list()
-                    for el in elements:
-                        if isinstance(el, (str, np.str, np.str_)):
-                            object_list.append(self.convert_element(el))
-                        if isinstance(el, ChemicalElement):
-                            object_list.append(el)
-                        if isinstance(el, Atom):
-                            object_list.append(el.element)
-                        if isinstance(el, (int, np.integer)):
-                            # pse = PeriodicTable()
-                            object_list.append(self._pse.element(el))
-                        el_object_list = object_list
-
-                if len(elements) == 0:
-                    element_list = elements
-                else:
-                    if isinstance(elements[0], (list, tuple, np.ndarray)):
-                        elements = np.array(elements).flatten()
-                    if isinstance(elements[0], string_types):
-                        element_list = elements
-                    elif isinstance(elements[0], ChemicalElement):
-                        el_object_list = elements
-                    elif isinstance(elements[0], Atom):
-                        el_object_list = [el.element for el in elements]
-                        positions = [el.position for el in elements]
-                    elif elements.dtype in [int, np.integer]:
-                        el_object_list = self.numbers_to_elements(elements)
-                    else:
-                        raise ValueError(
-                            "Unknown static type for element in list: "
-                            + str(type(elements[0]))
-                        )
-
-            if el_object_list is None:
-                el_object_list = [self.convert_element(el) for el in element_list]
-
-            self.set_species(list(set(el_object_list)))
-            # species_to_index_dict = {el: i for i, el in enumerate(self.species)}
-            el_index_lst = [self._species_to_index_dict[el] for el in el_object_list]
-
-        elif indices is not None:
-            el_index_lst = indices
-            self.set_species(species)
-
-        if scaled_positions is not None:
-            if positions is not None:
-                raise ValueError("either position or scaled_positions can be given")
-            if cell is None:
-                raise ValueError("scaled_positions can only be used with a given cell")
-            positions = np.dot(np.array(cell).T, np.array(scaled_positions).T).T
-
-        if positions is None:
-            self.dimension = 3
-            if cell is not None:
-                positions = np.zeros((len(el_index_lst), self.dimension))
-
-        self.indices = np.array(el_index_lst)
-        self.positions = np.array(positions).astype(np.float)
-        self._tag_list._length = len(positions)
-
-        for key, val in qwargs.items():
-            print("set qwargs (ASE): ", key, val)
-            setattr(self, key, val)
-
-        if len(positions) > 0:
-            self.dimension = len(positions[0])
-        else:
-            self.dimension = 3
-        if dimension is not None:
-            self.dimension = dimension
-        if cell is not None:
-            if pbc is None:
-                self.pbc = True  # default setting
-            else:
-                self.pbc = pbc
-        self.set_initial_magnetic_moments(magmoms)
-        self._high_symmetry_points = None
-        if high_symmetry_points is not None:
-            self.set_high_symmetry_points(high_symmetry_points)
+        if elements is not None and symbols is None:
+            warnings.warn('elements is deprecated, use symbols instead', DeprecationWarning)
+            symbols = elements
+        super(ASEAtoms, self).__init__(symbols=symbols,
+                                       positions=positions,
+                                       numbers=numbers,
+                                       tags=tags,
+                                       momenta=momenta,
+                                       masses=masses,
+                                       magmoms=magmoms,
+                                       charges=charges,
+                                       scaled_positions=scaled_positions,
+                                       cell=cell,
+                                       pbc=pbc,
+                                       celldisp=celldisp,
+                                       constraint=constraint,
+                                       calculator=calculator,
+                                       info=info,
+                                       velocities=None)
 
 
     @property
@@ -2750,10 +2636,10 @@ class Atoms(ASEAtoms):
             new_array.index = item
         return new_array
 
-    def __getattr__(self, item):
-        if item in self._tag_list.keys():
-            return self._tag_list._lists[item]
-        return object.__getattribute__(self, item)
+    #def __getattr__(self, item):
+    #    if item in self._tag_list.keys():
+    #        return self._tag_list._lists[item]
+    #    return object.__getattribute__(self, item)
 
     def __len__(self):
         return len(self.indices)
@@ -3512,7 +3398,7 @@ class Atoms(ASEAtoms):
         write(filename, atoms, format, **kwargs)
 
 
-class _CrystalStructure(Atoms):
+class CrystalStructure(Atoms):
     """
     only for historical reasons
 
@@ -3527,302 +3413,66 @@ class _CrystalStructure(Atoms):
         **kwargs:
     """
 
-    def __init__(
+    def __new__(
         self,
-        element="Fe",
+        symbol,
+        directions=(None, None, None),
+        miller=(None, None, None),
+        size=(1, 1, 1),
+        latticeconstant=None,
+        pbc=True,
+        align=True,
+        debug=0,
         bravais_lattice="cubic",
         bravais_basis="primitive",
         lattice_constants=None,  # depending on symmetry length and angles
         dimension=3,
         rel_coords=True,
         pse=None,
-        **kwargs
+        element=None,
     ):
 
         # print "basis0"
         # allow also for scalar input for LatticeConstants (for a cubic system)
-        if lattice_constants is None:
-            lattice_constants = [1.0]
-        try:
-            test = lattice_constants[0]
-        except (TypeError, IndexError):
-            lattice_constants = [lattice_constants]
-        self.bravais_lattice = bravais_lattice
-        self.bravais_basis = bravais_basis
-        self.lattice_constants = lattice_constants
-        self.dimension = dimension
-        self.relCoords = rel_coords
-        self.element = element
-
-        self.__updateCrystal__(pse)
-
-        self.crystalParamsDict = {
-            "BravaisLattice": self.bravais_lattice,
-            "BravaisBasis": self.bravais_basis,
-            "LatticeConstants": self.lattice_constants,
-        }
-
-        self.crystal_lattice_dict = {
-            3: {
-                "cubic": ["fcc", "bcc", "primitive"],
-                "hexagonal": ["primitive", "hcp"],
-                "monoclinic": ["primitive", "base-centered"],
-                "triclinic": ["primitive"],
-                "orthorombic": [
-                    "primitive",
-                    "body-centered",
-                    "base-centered",
-                    "face-centered",
-                ],
-                "tetragonal": ["primitive", "body-centered"],
-                "rhombohedral": ["primitive"],
-            },
-            2: {
-                "oblique": ["primitive"],
-                "rectangular": ["primitive", "centered"],
-                "hexagonal": ["primitive"],
-                "square": ["primitive"],
-            },
-            1: {"line": ["primitive"]},
-        }
-
-        # init structure for lattice parameters alat, blat, clat, alpha, beta, gamma
-        self.crystalLatticeParams = {
-            3: {
-                "cubic": [1.0],
-                "hexagonal": [1.0, 2.0],
-                "monoclinic": [1.0, 1.0, 1.0, 90.0],
-                "triclinic": [1.0, 2.0, 3.0, 90.0, 90.0, 90.0],
-                "orthorombic": [1.0, 1.0, 1.0],
-                "tetragonal": [1.0, 2.0],
-                "rhombohedral": [1.0, 90.0, 90.0, 90.0],
-            },
-            2: {
-                "oblique": [1.0, 1.0, 90.0],
-                "rectangular": [1.0, 1.0],
-                "hexagonal": [1.0],
-                "square": [1.0],
-            },
-            1: {"line": [1.0]},
-        }
-
-        # print "basis"
-        super(_CrystalStructure, self).__init__(
-            elements=self.ElementList,
-            scaled_positions=self.coordinates,
-            cell=self.amat,  # tag = "Crystal",
-            pbc=[True, True, True][0 : self.dimension],
-        )
-
-    # ## private member functions
-    def __updateCrystal__(self, pse=None):
-        """
-
-        Args:
-            pse:
-
-        Returns:
-
-        """
-        self.__updateAmat__()
-        self.__updateCoordinates__()
-        self.__updateElementList__(pse)
-
-    def __updateAmat__(self):  # TODO: avoid multi-call of this function
-        """
-
-        Returns:
-
-        """
-        # print "lat constants (__updateAmat__):", self.LatticeConstants
-        a_lat = self.lattice_constants[0]
-
-        if self.dimension == 3:
-            alpha = None
-            beta = None
-            gamma = None
-            b_lat, c_lat = None, None
-            if self.bravais_lattice == "cubic":
-                b_lat = c_lat = a_lat
-                alpha = beta = gamma = 90 / 180.0 * np.pi  # 90 degrees
-            elif self.bravais_lattice == "tetragonal":
-                b_lat = a_lat
-                c_lat = self.lattice_constants[1]
-                alpha = beta = gamma = 0.5 * np.pi  # 90 degrees
-            elif self.bravais_lattice == "triclinic":
-                b_lat = self.lattice_constants[1]
-                c_lat = self.lattice_constants[2]
-                alpha = self.lattice_constants[3] / 180.0 * np.pi
-                beta = self.lattice_constants[4] / 180.0 * np.pi
-                gamma = self.lattice_constants[5] / 180.0 * np.pi
-            elif self.bravais_lattice == "hexagonal":
-                b_lat = a_lat
-                c_lat = self.lattice_constants[1]
-                alpha = 60.0 / 180.0 * np.pi  # 60 degrees
-                beta = gamma = 0.5 * np.pi  # 90 degrees
-            elif self.bravais_lattice == "orthorombic":
-                b_lat = self.lattice_constants[1]
-                c_lat = self.lattice_constants[2]
-                alpha = beta = gamma = 0.5 * np.pi  # 90 degrees
-            elif self.bravais_lattice == "rhombohedral":
-                b_lat = a_lat
-                c_lat = a_lat
-                alpha = self.lattice_constants[1] / 180.0 * np.pi
-                beta = self.lattice_constants[2] / 180.0 * np.pi
-                gamma = self.lattice_constants[3] / 180.0 * np.pi
-            elif self.bravais_lattice == "monoclinic":
-                b_lat = self.lattice_constants[1]
-                c_lat = self.lattice_constants[2]
-                alpha = 0.5 * np.pi
-                beta = self.lattice_constants[3] / 180.0 * np.pi
-                gamma = 0.5 * np.pi
-
-            b1 = np.cos(alpha)
-            b2 = np.sin(alpha)
-            c1 = np.cos(beta)
-            c2 = (np.cos(gamma) - np.cos(beta) * np.cos(alpha)) / np.sin(alpha)
-            self.amat = np.array(
-                [
-                    [a_lat, 0.0, 0.0],
-                    [b_lat * b1, b_lat * b2, 0.0],
-                    [c_lat * c1, c_lat * c2, c_lat * np.sqrt(1 - c2 * c2 - c1 * c1)],
-                ]
-            )
-        elif self.dimension == 2:  # TODO not finished yet
-            self.amat = a_lat * np.array([[1.0, 0.0], [0.0, 1.0]])
-            if self.bravais_lattice == "rectangular":
-                b_lat = self.lattice_constants[1]
-                self.amat = np.array([[a_lat, 0.0], [0.0, b_lat]])
-        elif self.dimension == 1:
-            self.amat = a_lat * np.array([[1.0]])
+        if element is not None:
+            warnings.warn('element is deprecated, use symbol', DeprecationWarning)
+            symbol = element
+        if lattice_constants is not None:
+            warnings.warn('lattice_constant is deprecated, use latticeconstant', DeprecationWarning)
+            latticeconstant = lattice_constantS
+        bravais_basis = bravais_basis.lower()
+        if bravais_basis == 'bcc':
+            from ase.lattice.cubic import BodyCenteredCubic
+            return ase_to_pyiron(BodyCenteredCubic(symbol=symbol,
+                                                   directions=directions,
+                                                   miller=miller,
+                                                   size=size,
+                                                   latticeconstant=latticeconstant,
+                                                   pbc=pbc,
+                                                   align=align,
+                                                   debug=debug))
+        elif bravais_basis is 'fcc':
+            from ase.lattice.cubic import FodyCenteredCubic
+            return ase_to_pyiron(FodyCenteredCubic(symbol=symbol,
+                                                   directions=directions,
+                                                   miller=miller,
+                                                   size=size,
+                                                   latticeconstant=latticeconstant,
+                                                   pbc=pbc,
+                                                   align=align,
+                                                   debug=debug))
+        elif bravais_basis is 'hcp':
+            from ase.lattice.hexagonal import HexagonalClosedPacked
+            return ase_to_pyiron(HexagonalClosedPacked(symbol=symbol,
+                                                       directions=directions,
+                                                       miller=miller,
+                                                       size=size,
+                                                       latticeconstant=latticeconstant,
+                                                       pbc=pbc,
+                                                       align=align,
+                                                       debug=debug))
         else:
-            raise ValueError("Bravais lattice not defined!")
-
-    def __updateElementList__(self, pse=None):
-        """
-
-        Args:
-            pse:
-
-        Returns:
-
-        """
-        self.ElementList = len(self.coordinates) * [self.element]
-
-    def __updateCoordinates__(self):
-        """
-
-        Returns:
-
-        """
-        # if relative coordinates
-        basis = None
-        if self.dimension == 3:
-            if self.bravais_basis == "fcc" or self.bravais_basis == "face-centered":
-                basis = np.array(
-                    [[0.0, 0.0, 0.0], [0.5, 0.5, 0.0], [0.5, 0.0, 0.5], [0.0, 0.5, 0.5]]
-                )
-            elif self.bravais_basis == "body-centered" or self.bravais_basis == "bcc":
-                basis = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]])
-            elif self.bravais_basis == "base-centered":
-                basis = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.0]])
-            elif self.bravais_basis == "hcp":
-                # basis = r([[0.0,-1./np.sqrt(3.),np.sqrt(8./3.)]])
-                # a = self.LatticeConstants[0]
-                # c = self.LatticeConstants[1]
-                basis = np.array([[0.0, 0.0, 0.0], [1.0 / 3.0, 1.0 / 3.0, 1.0 / 2.0]])
-                # basis = np.dot(basis,np.linalg.inv(self.amat))
-            elif self.bravais_basis == "primitive":
-                basis = np.array([[0.0, 0.0, 0.0]])
-            else:
-                exit()
-        elif self.dimension == 2:
-            if self.bravais_basis == "primitive":
-                basis = np.array([[0.0, 0.0]])
-            elif self.bravais_basis == "centered":
-                basis = np.array([[0.0, 0.0], [0.5, 0.5]])
-            else:
-                exit()
-        elif self.dimension == 1:
-            if self.bravais_basis == "primitive":
-                basis = np.array([[0.0]])
-            else:
-                exit()
-        self.coordinates = basis
-
-    # ########################### get commmands ########################
-    def get_lattice_types(self):
-        """
-
-        Returns:
-
-        """
-        self.crystal_lattice_dict[self.dimension].keys().sort()
-        return self.crystal_lattice_dict[self.dimension].keys()
-
-    def get_dimension_of_lattice_parameters(self):
-        """
-
-        Returns:
-
-        """
-        # print "getDimensionOfLatticeParameters"
-        counter = 0
-        for k in self.get_needed_lattice_parameters():
-            if k:
-                counter += 1
-        return counter
-
-    def get_needed_lattice_parameters(self):
-        """
-
-        Returns:
-
-        """
-        # print "call: getNeededLatticeParams"
-        needed_params = [True, False, False, False, False, False]
-        if self.dimension == 3:
-            if self.bravais_lattice == "cubic":
-                needed_params = [
-                    True,
-                    False,
-                    False,
-                    False,
-                    False,
-                    False,
-                ]  # stands for alat, blat, clat, alpha, beta, gamma
-            elif self.bravais_lattice == "triclinic":
-                needed_params = [True, True, True, True, True, True]
-            elif self.bravais_lattice == "monoclinic":
-                needed_params = [True, True, True, True, False, False]
-            elif self.bravais_lattice == "orthorombic":
-                needed_params = [True, True, True, False, False, False]
-            elif self.bravais_lattice == "tetragonal":
-                needed_params = [True, False, True, False, False, False]
-            elif self.bravais_lattice == "rhombohedral":
-                needed_params = [True, False, False, True, True, True]
-            elif self.bravais_lattice == "hexagonal":
-                needed_params = [True, False, True, False, False, False]
-        elif self.dimension == 2:
-            if self.bravais_lattice == "oblique":
-                needed_params = [True, True, False, True, False, False]
-            elif self.bravais_lattice == "rectangular":
-                needed_params = [True, True, False, False, False, False]
-            elif self.bravais_lattice == "hexagonal":
-                needed_params = [True, False, False, False, False, False]
-            elif self.bravais_lattice == "square":
-                needed_params = [True, False, False, False, False, False]
-            else:  # TODO: need to be improved
-                needed_params = [True, False, False, False, False, False]
-        elif self.dimension == 1:
-            if self.bravais_lattice == "line":
-                needed_params = [True, False, False, False, False, False]
-            else:  # TODO: improval needed
-                needed_params = [True, False, False, False, False, False]
-        else:
-            raise ValueError("inconsistency in lattice structures")
-
-        return needed_params
+            raise AssertionError('Did not recognize crystal structure')
 
     def get_basis_types(self):
         """
@@ -4037,12 +3687,6 @@ class Neighbors:
             self._shells = np.array(new_shells)
         else:
             raise TypeError("Only lists and np.arrays are supported.")
-
-
-class CrystalStructure(object):
-    def __new__(cls, *args, **kwargs):
-        basis = _CrystalStructure(*args, **kwargs).atoms()
-        return basis
 
 
 def ase_to_pyiron(ase_obj):
