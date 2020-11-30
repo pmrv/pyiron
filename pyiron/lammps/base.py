@@ -254,16 +254,13 @@ class LammpsBase(AtomisticGenericJob):
         """
         return self.list_potentials()
 
+    @deprecate("use get_structure() instead")
     def get_final_structure(self):
         """
 
         Returns:
 
         """
-        warnings.warn(
-            "get_final_structure() is deprecated - please use get_structure() instead.",
-            DeprecationWarning,
-        )
         return self.get_structure(iteration_step=-1)
 
     def view_potentials(self):
